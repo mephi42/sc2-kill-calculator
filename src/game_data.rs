@@ -10,12 +10,14 @@ use std::path::Path;
 
 #[derive(Serialize, Deserialize)]
 pub struct Unit {
-    name: String,
-
-    race: String,
-
+    #[serde(rename = "abilityCommands")]
+    pub ability_commands: Vec<String>,
+    pub invulnerable: bool,
     #[serde(rename = "lifeMax")]
-    life_max: f32,
+    pub life_max: f32,
+    pub name: String,
+    pub race: String,
+    pub weapons: Vec<String>,
 }
 
 type UnitData = HashMap<String, Unit>;
