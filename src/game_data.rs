@@ -3,12 +3,13 @@ extern crate serde_json;
 
 use error::Error;
 use std::collections::HashMap;
-use std::fmt;
 use std::fs::File;
 use std::path::Path;
 
 #[derive(Serialize, Deserialize)]
 pub struct Unit {
+    name: String,
+
     #[serde(rename = "lifeMax")]
     life_max: f32,
 }
