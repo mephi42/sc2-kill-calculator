@@ -6,6 +6,7 @@ use std::io;
 pub enum Error {
     Io(io::Error),
     Json(serde_json::Error),
+    WebApp(String),
 }
 
 impl From<io::Error> for Error {

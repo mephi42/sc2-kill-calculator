@@ -1,12 +1,12 @@
 #![feature(plugin)]
 #![plugin(rocket_codegen)]
 
-#[macro_use]
 extern crate rocket;
 #[macro_use]
 extern crate serde_derive;
 extern crate serde_json;
 
+use rocket::State;
 use std::path::Path;
 
 mod error;
@@ -17,18 +17,38 @@ static VERSIONS: [&str; 1] = [
     "v4.2.3.63785",
 ];
 
-#[get("/")]
-fn versions() -> String {
-    serde_json::to_string(&rest::VersionsResponse {
-        versions: VERSIONS.into_iter().map(|x| String::from(*x)).collect(),
-    }).expect("This should never happen")
+#[get("/versions")]
+fn versions(game_data: State<game_data::GameData>) -> Result<String, error::Error> {
+    let mut versions: Vec<String> = game_data.keys().map(|x| x.clone()).collect();
+    versions.sort();
+    let result = serde_json::to_string(&rest::VersionsResponse {
+        versions,
+    })?;
+    Ok(result)
+}
+
+#[get("/versions/<version>")]
+fn version(version: String, game_data: State<game_data::GameData>) -> Result<String, error::Error> {
+    let game = match game_data.get(&version) {
+        Some(x) => x,
+        None => return Err(error::Error::WebApp(String::from("No such version"))),
+    };
+    let races = game.races.clone();
+    let result = serde_json::to_string(&rest::VersionResponse {
+        races,
+    })?;
+    Ok(result)
+}
+
+fn main_impl() -> Result<(), error::Error> {
+    let game_data = game_data::load(Path::new("."), &VERSIONS)?;
+    rocket::ignite()
+        .mount("/", routes![versions, version])
+        .manage(game_data)
+        .launch();
+    Ok(())
 }
 
 fn main() {
-    let game_data = VERSIONS.into_iter().map(|version| {
-        game_data::load(Path::new(version)).expect("Could not load game data")
-    });
-    rocket::ignite()
-        .mount("/versions", routes![versions])
-        .launch();
+    main_impl().expect("An error occurred")
 }

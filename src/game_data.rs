@@ -3,12 +3,16 @@ extern crate serde_json;
 
 use error::Error;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::fs::File;
+use std::iter::FromIterator;
 use std::path::Path;
 
 #[derive(Serialize, Deserialize)]
 pub struct Unit {
     name: String,
+
+    race: String,
 
     #[serde(rename = "lifeMax")]
     life_max: f32,
@@ -22,13 +26,30 @@ fn load_unit_data(path: &Path) -> Result<UnitData, Error> {
     Ok(unit_data)
 }
 
-pub struct GameData {
-    unit_data: UnitData,
+pub struct Game {
+    pub races: Vec<String>,
+    pub unit_data: UnitData,
 }
 
-pub fn load(path: &Path) -> Result<GameData, Error> {
+fn load_game(path: &Path) -> Result<Game, Error> {
     let unit_data = load_unit_data(&path.join("units.json"))?;
-    Ok(GameData {
-        unit_data: unit_data,
+    let races = {
+        let uniq: HashSet<&String> = unit_data.values().map(|x| &x.race).collect();
+        Vec::from_iter(uniq.into_iter().map(|x| x.clone()))
+    };
+    Ok(Game {
+        races,
+        unit_data,
     })
+}
+
+pub type GameData = HashMap<String, Game>;
+
+pub fn load(path: &Path, versions: &[&str]) -> Result<GameData, Error> {
+    let mut game_data = HashMap::new();
+    for version in versions {
+        let game = load_game(&path.join(version))?;
+        game_data.insert(String::from(*version), game);
+    }
+    Ok(game_data)
 }
