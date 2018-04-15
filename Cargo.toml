@@ -1,0 +1,10 @@
+[package]
+name = "starcraft-2-kill-calculator"
+version = "0.1.0"
+authors = ["mephi42 <iii@de.ibm.com>"]
+
+[dependencies]
+rocket = "0.3.8"
+serde = "1.0.38"
+serde_derive = "1.0.38"
+serde_json = "1.0.14"
