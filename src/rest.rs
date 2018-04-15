@@ -23,6 +23,8 @@ pub struct Unit {
 
 #[derive(Serialize)]
 pub struct KillCalculation {
+    #[serde(rename = "can-hit")]
+    pub can_hit: bool,
     pub hits: i32,
 }
 

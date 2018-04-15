@@ -7,7 +7,7 @@ extern crate rocket_contrib;
 extern crate serde_derive;
 extern crate serde_json;
 
-use game_data::{Game, GameData, Unit};
+use game_data::{Game, GameData, Unit, Weapon, WeaponData, WeaponEffect};
 use rocket::State;
 use rocket_contrib::Json;
 use std::path::Path;
@@ -64,6 +64,33 @@ fn rest_unit(unit: &Unit) -> rest::Unit {
     }
 }
 
+fn get_weapon<'a>(attacker: &Unit, defender: &Unit, weapons: &'a WeaponData) -> Option<&'a Weapon> {
+    match attacker.weapons.get(0) {
+        Some(x) => weapons.get(x),
+        None => None,
+    }
+}
+
+fn get_dmg(effect: &WeaponEffect) -> f32 {
+    match effect.dmg_amount {
+        Some(x) => x,
+        None => 1.0,
+    }
+}
+
+fn calculate_kill(attacker: &Unit, defender: &Unit, weapons: &WeaponData) -> rest::KillCalculation {
+    match get_weapon(attacker, defender, weapons) {
+        Some(weapon) => rest::KillCalculation {
+            can_hit: true,
+            hits: (defender.life_max / get_dmg(&weapon.effect)).ceil() as i32,
+        },
+        None => rest::KillCalculation {
+            can_hit: false,
+            hits: 0,
+        },
+    }
+}
+
 #[post("/versions/<version>/matchup", data = "<request>")]
 fn matchup(version: String, request: Json<rest::MatchupRequest>, game_data: State<GameData>) -> Result<String, error::Error> {
     let game = get_game(&game_data, &version)?;
@@ -72,7 +99,11 @@ fn matchup(version: String, request: Json<rest::MatchupRequest>, game_data: Stat
     let result = serde_json::to_string(&rest::MatchupResponse {
         attackers: attacker_units.iter().map(|x| rest_unit(x)).collect(),
         defenders: defender_units.iter().map(|x| rest_unit(x)).collect(),
-        kill_calculations: Vec::new(),
+        kill_calculations: attacker_units.iter().map(|a| {
+            defender_units.iter().map(|d| {
+                calculate_kill(a, d, &game.weapon_data)
+            }).collect()
+        }).collect(),
     })?;
     Ok(result)
 }
