@@ -37,12 +37,6 @@ pub struct Weapon {
 
 pub type WeaponData = HashMap<String, Weapon>;
 
-fn load_weapon_data(path: &Path) -> Result<WeaponData, Error> {
-    let f = File::open(path)?;
-    let weapon_data = serde_json::from_reader(f)?;
-    Ok(weapon_data)
-}
-
 #[derive(Deserialize)]
 pub struct Unit {
     #[serde(rename = "abilityCommands")]
@@ -57,21 +51,45 @@ pub struct Unit {
 
 type UnitData = HashMap<String, Unit>;
 
-fn load_unit_data(path: &Path) -> Result<UnitData, Error> {
-    let f = File::open(path)?;
-    let unit_data = serde_json::from_reader(f)?;
-    Ok(unit_data)
+#[derive(Deserialize)]
+pub struct EffectArrayEntry {
+    pub operation: String,
+    #[serde(rename = "referenceType")]
+    pub reference_type: String,
+    #[serde(rename = "referenceId")]
+    pub reference_id: String,
+    #[serde(rename = "referenceAttribute")]
+    pub reference_attribute: String,
+    pub value: String,
 }
+
+#[derive(Deserialize)]
+pub struct Upgrade {
+    name: String,
+    race: String,
+    #[serde(rename = "effectArray")]
+    effect_array: Vec<EffectArrayEntry>,
+}
+
+type UpgradeData = HashMap<String, Upgrade>;
 
 pub struct Game {
     pub races: Vec<String>,
     pub unit_data: UnitData,
     pub weapon_data: WeaponData,
+    pub upgrade_data: UpgradeData,
+}
+
+fn load_json<T>(path: &Path) -> Result<T, Error> where for<'de> T: serde::Deserialize<'de> {
+    let f = File::open(path)?;
+    let weapon_data = serde_json::from_reader(f)?;
+    Ok(weapon_data)
 }
 
 fn load_game(path: &Path) -> Result<Game, Error> {
-    let unit_data = load_unit_data(&path.join("units.json"))?;
-    let weapon_data = load_weapon_data(&path.join("weapons.json"))?;
+    let unit_data: UnitData = load_json(&path.join("units.json"))?;
+    let weapon_data: WeaponData = load_json(&path.join("weapons.json"))?;
+    let upgrade_data: UpgradeData = load_json(&path.join("upgrades.json"))?;
     let races = {
         let uniq: HashSet<&String> = unit_data.values().map(|x| &x.race).collect();
         Vec::from_iter(uniq.into_iter().map(|x| x.clone()))
@@ -80,6 +98,7 @@ fn load_game(path: &Path) -> Result<Game, Error> {
         races,
         unit_data,
         weapon_data,
+        upgrade_data,
     })
 }
 

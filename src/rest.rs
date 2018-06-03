@@ -22,6 +22,9 @@ pub struct Unit {
 }
 
 #[derive(Serialize)]
+pub struct Upgrade {}
+
+#[derive(Serialize)]
 pub struct KillCalculation {
     #[serde(rename = "can-hit")]
     pub can_hit: bool,
@@ -32,6 +35,10 @@ pub struct KillCalculation {
 pub struct MatchupResponse {
     pub attackers: Vec<Unit>,
     pub defenders: Vec<Unit>,
+    #[serde(rename = "attacker-upgrades")]
+    pub attacker_upgrades: Vec<Upgrade>,
+    #[serde(rename = "defender-upgrades")]
+    pub defender_upgrades: Vec<Upgrade>,
     #[serde(rename = "kill-calculations")]
     pub kill_calculations: Vec<Vec<KillCalculation>>,
 }

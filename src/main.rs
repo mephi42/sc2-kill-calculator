@@ -17,7 +17,7 @@ mod game_data;
 mod rest;
 
 static VERSIONS: [&str; 1] = [
-    "v4.2.3.63785",
+    "v4.2.4.64128",
 ];
 
 #[get("/versions")]
@@ -33,7 +33,7 @@ fn versions(game_data: State<GameData>) -> Result<String, error::Error> {
 fn get_game<'a>(game_data: &'a GameData, version: &str) -> Result<&'a Game, error::Error> {
     match game_data.get(version) {
         Some(x) => Ok(x),
-        None => Err(error::Error::WebApp(String::from("No such version"))),
+        None => Err(error::Error::WebApp(String::from("Unsupported version"))),
     }
 }
 
@@ -99,6 +99,8 @@ fn matchup(version: String, request: Json<rest::MatchupRequest>, game_data: Stat
     let result = serde_json::to_string(&rest::MatchupResponse {
         attackers: attacker_units.iter().map(|x| rest_unit(x)).collect(),
         defenders: defender_units.iter().map(|x| rest_unit(x)).collect(),
+        attacker_upgrades: Vec::new(),
+        defender_upgrades: Vec::new(),
         kill_calculations: attacker_units.iter().map(|a| {
             defender_units.iter().map(|d| {
                 calculate_kill(a, d, &game.weapon_data)
