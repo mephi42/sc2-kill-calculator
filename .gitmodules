@@ -1,0 +1,3 @@
+[submodule "sc2-gamedata"]
+	path = sc2-gamedata
+	url = git@github.com:mephi42/sc2-gamedata.git
