@@ -47,6 +47,10 @@ pub struct Unit {
     pub name: String,
     pub race: String,
     pub weapons: Vec<String>,
+    #[serde(rename = "shieldsMax")]
+    pub shields_max: f32,
+    #[serde(rename = "lifeArmor")]
+    pub life_armor: f32,
 }
 
 type UnitData = HashMap<String, Unit>;

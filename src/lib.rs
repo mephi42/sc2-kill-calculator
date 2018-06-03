@@ -39,7 +39,8 @@ fn get_game<'a>(game_data: &'a GameData, version: &str) -> Result<&'a Game, erro
 #[get("/versions/<version>")]
 fn version(version: String, game_data: State<GameData>) -> Result<Json<rest::VersionResponse>, error::Error> {
     let game = get_game(&game_data, &version)?;
-    let races = game.races.clone();
+    let mut races = game.races.clone();
+    races.sort();
     Ok(Json(rest::VersionResponse {
         races,
     }))
@@ -70,17 +71,33 @@ fn get_weapon<'a>(attacker: &Unit, defender: &Unit, weapons: &'a WeaponData) -> 
 }
 
 fn get_dmg(effect: &WeaponEffect) -> f32 {
-    match effect.dmg_amount {
-        Some(x) => x,
-        None => 1.0,
-    }
+    let self_dmg_amount: f32 = effect.dmg_amount.unwrap_or_else(|| 0.0);
+    let children_dmg_amount: f32 = effect.set_effects
+        .iter().flat_map(|x| x.iter().map(|x| get_dmg(x))).sum();
+    let total_dmg_amount: f32 = self_dmg_amount + children_dmg_amount;
+    total_dmg_amount.max(1.0)
+}
+
+fn get_attacks_nr(effect: &WeaponEffect) -> i32 {
+    effect.persistent_count.unwrap_or_else(|| 1)
 }
 
 fn calculate_kill(attacker: &Unit, defender: &Unit, weapons: &WeaponData) -> rest::KillCalculation {
     match get_weapon(attacker, defender, weapons) {
-        Some(weapon) => rest::KillCalculation {
-            can_hit: true,
-            hits: (defender.life_max / get_dmg(&weapon.effect)).ceil() as i32,
+        Some(weapon) => {
+            let damage_dealt = get_dmg(&weapon.effect);
+            let attacks_nr = get_attacks_nr(&weapon.effect);
+            let shield_defense = 0.0;  // TODO: upgrades
+            let armor_defense = defender.life_armor;  // TODO: upgrades
+            let damage_dealt_shields = damage_dealt - shield_defense;
+            let damade_dealt_armor = damage_dealt - armor_defense;
+            let hits_shields = (defender.shields_max / damage_dealt_shields).ceil();
+            let shields_spill = (damage_dealt_shields * hits_shields - defender.shields_max - armor_defense).max(0.0);
+            let hits_life = ((defender.life_max - shields_spill) / damade_dealt_armor).ceil();
+            rest::KillCalculation {
+                can_hit: true,
+                hits: ((hits_shields + hits_life) / attacks_nr as f32).ceil() as i32,
+            }
         },
         None => rest::KillCalculation {
             can_hit: false,

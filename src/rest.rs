@@ -1,14 +1,14 @@
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct VersionsResponse {
     pub versions: Vec<String>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct VersionResponse {
     pub races: Vec<String>,
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct MatchupRequest {
     #[serde(rename = "attacker-race")]
     pub attacker_race: String,
@@ -16,22 +16,22 @@ pub struct MatchupRequest {
     pub defender_race: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct Unit {
     pub name: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct Upgrade {}
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct KillCalculation {
     #[serde(rename = "can-hit")]
     pub can_hit: bool,
     pub hits: i32,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct MatchupResponse {
     pub attackers: Vec<Unit>,
     pub defenders: Vec<Unit>,
