@@ -162,5 +162,9 @@ mod test {
             attacker_race: String::from(ZERG),
             defender_race: String::from(ZERG),
         });
+        assert_eq!(rest::KillCalculation {
+            can_hit: true,
+            hits: 8,
+        }, *kill_calculation(&matchup, ZERGLING, ZERGLING))
     }
 }

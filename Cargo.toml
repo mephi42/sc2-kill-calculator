@@ -4,12 +4,14 @@ version = "0.1.0"
 authors = ["mephi42 <iii@de.ibm.com>"]
 
 [dependencies]
+log = "0.4.2"
 rocket = "0.3.12"
 rocket_codegen = "0.3.12"
 rocket_contrib = "0.3.12"
 serde = "1.0.65"
 serde_derive = "1.0.65"
 serde_json = "1.0.19"
+stderrlog = "0.4.0"
 
 [dev-dependencies]
 lazy_static = "1.0.1"

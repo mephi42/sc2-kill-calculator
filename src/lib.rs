@@ -1,6 +1,8 @@
 #![feature(plugin)]
 #![plugin(rocket_codegen)]
 
+#[macro_use]
+extern crate log;
 extern crate rocket;
 extern crate rocket_contrib;
 #[macro_use]
@@ -70,35 +72,96 @@ fn get_weapon<'a>(attacker: &Unit, defender: &Unit, weapons: &'a WeaponData) -> 
     }
 }
 
-fn get_dmg(effect: &WeaponEffect) -> f32 {
-    let self_dmg_amount: f32 = effect.dmg_amount.unwrap_or_else(|| 0.0);
-    let children_dmg_amount: f32 = effect.set_effects
-        .iter().flat_map(|x| x.iter().map(|x| get_dmg(x))).sum();
-    let total_dmg_amount: f32 = self_dmg_amount + children_dmg_amount;
-    total_dmg_amount.max(1.0)
+struct DamageInstance {
+    timestamp: f32,
+    dmg_amount: f32,
 }
 
-fn get_attacks_nr(effect: &WeaponEffect) -> i32 {
-    effect.persistent_count.unwrap_or_else(|| 1)
+fn get_damage_instances(effect: &WeaponEffect, mut timestamp: f32) -> Vec<DamageInstance> {
+    let mut damage_instances = Vec::new();
+    let persistent_count = match effect.persistent_count {
+        Some(persistent_count) => persistent_count,
+        None => 1,
+    };
+    let default_persistent_periods = vec!(0.);
+    let persistent_periods = match effect.persistent_periods {
+        Some(ref persistent_periods) => &persistent_periods,
+        None => &default_persistent_periods,
+    };
+    for i in 0..(persistent_count as usize) {
+        match effect.dmg_amount {
+            Some(0.) => {}
+            Some(dmg_amount) =>
+                damage_instances.push(DamageInstance { timestamp, dmg_amount }),
+            None => {}
+        }
+        for set_effects in effect.set_effects.iter() {
+            for set_effect in set_effects {
+                damage_instances.extend(get_damage_instances(&set_effect, timestamp))
+            }
+        }
+        timestamp += persistent_periods[i % persistent_periods.len()]
+    }
+    damage_instances
 }
 
 fn calculate_kill(attacker: &Unit, defender: &Unit, weapons: &WeaponData) -> rest::KillCalculation {
     match get_weapon(attacker, defender, weapons) {
         Some(weapon) => {
-            let damage_dealt = get_dmg(&weapon.effect);
-            let attacks_nr = get_attacks_nr(&weapon.effect);
-            let shield_defense = 0.0;  // TODO: upgrades
-            let armor_defense = defender.life_armor;  // TODO: upgrades
-            let damage_dealt_shields = damage_dealt - shield_defense;
-            let damade_dealt_armor = damage_dealt - armor_defense;
-            let hits_shields = (defender.shields_max / damage_dealt_shields).ceil();
-            let shields_spill = (damage_dealt_shields * hits_shields - defender.shields_max - armor_defense).max(0.0);
-            let hits_life = ((defender.life_max - shields_spill) / damade_dealt_armor).ceil();
-            rest::KillCalculation {
-                can_hit: true,
-                hits: ((hits_shields + hits_life) / attacks_nr as f32).ceil() as i32,
+            let instances = get_damage_instances(&weapon.effect, 0.);
+            if instances.is_empty() {
+                rest::KillCalculation {
+                    can_hit: false,
+                    hits: 0,
+                }
+            } else {
+                let shield_defense = 0.;  // TODO: upgrades
+                let armor_defense = defender.life_armor;  // TODO: upgrades
+                let mut i = 0;
+                let mut life = defender.life_max;
+                let mut shields = defender.shields_max;
+                let mut prev_timestamp = 0.;
+                loop {
+                    let instance = &instances[i % instances.len()];
+                    let damage_dealt = instance.dmg_amount;
+                    let timestamp = (i / instances.len()) as f32 / weapon.period + instance.timestamp;
+
+                    // https://liquipedia.net/starcraft2/Zerg_Regeneration
+                    if life < defender.life_max {
+                        life += (timestamp - prev_timestamp) * defender.life_regen_rate;
+                    }
+
+                    // https://liquipedia.net/starcraft2/Damage_Calculation
+                    life -= if shields == 0. {
+                        (damage_dealt - armor_defense).max(0.5)
+                    } else {
+                        let damage_dealt_shields = (damage_dealt - shield_defense).max(0.5);
+                        let spill = damage_dealt_shields - shields;
+                        if spill < 0. {
+                            shields = -spill;
+                            0.
+                        } else {
+                            shields = 0.;
+                            (spill - armor_defense).max(0.)
+                        }
+                    };
+
+                    i += 1;
+                    prev_timestamp = timestamp;
+                    if i >= 999 {
+                        warn!("{} vs {} took too long", attacker.name, defender.name);
+                        break;
+                    }
+                    if life < 1. {
+                        break;
+                    }
+                };
+                rest::KillCalculation {
+                    can_hit: true,
+                    hits: ((i + instances.len() - 1) / instances.len()) as i32,
+                }
             }
-        },
+        }
         None => rest::KillCalculation {
             can_hit: false,
             hits: 0,

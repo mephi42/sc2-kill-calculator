@@ -23,6 +23,8 @@ pub struct WeaponEffect {
     pub persistent_count: Option<i32>,
     #[serde(rename = "setEffects")]
     pub set_effects: Option<Vec<WeaponEffect>>,
+    #[serde(rename = "persistentPeriods")]
+    pub persistent_periods: Option<Vec<f32>>,
 }
 
 #[derive(Deserialize)]
@@ -37,7 +39,7 @@ pub struct Weapon {
 
 pub type WeaponData = HashMap<String, Weapon>;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct Unit {
     #[serde(rename = "abilityCommands")]
     pub ability_commands: Vec<String>,
@@ -51,6 +53,8 @@ pub struct Unit {
     pub shields_max: f32,
     #[serde(rename = "lifeArmor")]
     pub life_armor: f32,
+    #[serde(rename = "lifeRegenRate")]
+    pub life_regen_rate: f32,
 }
 
 type UnitData = HashMap<String, Unit>;
