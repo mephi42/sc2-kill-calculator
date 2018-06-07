@@ -97,6 +97,7 @@ mod test {
         assert_eq!(rest::KillCalculation {
             can_hit: true,
             hits: 11,
+            time: 12.0,
         }, *kill_calculation(&matchup, ZEALOT, ZEALOT))
     }
 
@@ -165,6 +166,7 @@ mod test {
         assert_eq!(rest::KillCalculation {
             can_hit: true,
             hits: 8,
+            time: 4.87,
         }, *kill_calculation(&matchup, ZERGLING, ZERGLING))
     }
 }

@@ -73,11 +73,11 @@ fn get_weapon<'a>(attacker: &Unit, defender: &Unit, weapons: &'a WeaponData) -> 
 }
 
 struct DamageInstance {
-    timestamp: f32,
+    time: f32,
     dmg_amount: f32,
 }
 
-fn get_damage_instances(effect: &WeaponEffect, mut timestamp: f32) -> Vec<DamageInstance> {
+fn get_damage_instances(effect: &WeaponEffect, mut time: f32) -> Vec<DamageInstance> {
     let mut damage_instances = Vec::new();
     let persistent_count = match effect.persistent_count {
         Some(persistent_count) => persistent_count,
@@ -92,18 +92,20 @@ fn get_damage_instances(effect: &WeaponEffect, mut timestamp: f32) -> Vec<Damage
         match effect.dmg_amount {
             Some(0.) => {}
             Some(dmg_amount) =>
-                damage_instances.push(DamageInstance { timestamp, dmg_amount }),
+                damage_instances.push(DamageInstance { time, dmg_amount }),
             None => {}
         }
         for set_effects in effect.set_effects.iter() {
             for set_effect in set_effects {
-                damage_instances.extend(get_damage_instances(&set_effect, timestamp))
+                damage_instances.extend(get_damage_instances(&set_effect, time))
             }
         }
-        timestamp += persistent_periods[i % persistent_periods.len()]
+        time += persistent_periods[i % persistent_periods.len()]
     }
     damage_instances
 }
+
+static MIN_DMG: f32 = 0.5;
 
 fn calculate_kill(attacker: &Unit, defender: &Unit, weapons: &WeaponData) -> rest::KillCalculation {
     match get_weapon(attacker, defender, weapons) {
@@ -113,6 +115,7 @@ fn calculate_kill(attacker: &Unit, defender: &Unit, weapons: &WeaponData) -> res
                 rest::KillCalculation {
                     can_hit: false,
                     hits: 0,
+                    time: 0.,
                 }
             } else {
                 let shield_defense = 0.;  // TODO: upgrades
@@ -120,22 +123,21 @@ fn calculate_kill(attacker: &Unit, defender: &Unit, weapons: &WeaponData) -> res
                 let mut i = 0;
                 let mut life = defender.life_max;
                 let mut shields = defender.shields_max;
-                let mut prev_timestamp = 0.;
+                let mut time = 0.;
+                let mut prev_time = 0.;
                 loop {
                     let instance = &instances[i % instances.len()];
                     let damage_dealt = instance.dmg_amount;
-                    let timestamp = (i / instances.len()) as f32 / weapon.period + instance.timestamp;
+                    time = (i / instances.len()) as f32 * weapon.period + instance.time;
 
                     // https://liquipedia.net/starcraft2/Zerg_Regeneration
-                    if life < defender.life_max {
-                        life += (timestamp - prev_timestamp) * defender.life_regen_rate;
-                    }
+                    life = (life + (time - prev_time) * defender.life_regen_rate).min(defender.life_max);
 
                     // https://liquipedia.net/starcraft2/Damage_Calculation
                     life -= if shields == 0. {
-                        (damage_dealt - armor_defense).max(0.5)
+                        (damage_dealt - armor_defense).max(MIN_DMG)
                     } else {
-                        let damage_dealt_shields = (damage_dealt - shield_defense).max(0.5);
+                        let damage_dealt_shields = (damage_dealt - shield_defense).max(MIN_DMG);
                         let spill = damage_dealt_shields - shields;
                         if spill < 0. {
                             shields = -spill;
@@ -147,7 +149,7 @@ fn calculate_kill(attacker: &Unit, defender: &Unit, weapons: &WeaponData) -> res
                     };
 
                     i += 1;
-                    prev_timestamp = timestamp;
+                    prev_time = time;
                     if i >= 999 {
                         warn!("{} vs {} took too long", attacker.name, defender.name);
                         break;
@@ -159,12 +161,14 @@ fn calculate_kill(attacker: &Unit, defender: &Unit, weapons: &WeaponData) -> res
                 rest::KillCalculation {
                     can_hit: true,
                     hits: ((i + instances.len() - 1) / instances.len()) as i32,
+                    time: (time * 100.).round() / 100.,
                 }
             }
         }
         None => rest::KillCalculation {
             can_hit: false,
             hits: 0,
+            time: 0.,
         },
     }
 }

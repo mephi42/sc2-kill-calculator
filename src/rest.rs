@@ -29,6 +29,7 @@ pub struct KillCalculation {
     #[serde(rename = "can-hit")]
     pub can_hit: bool,
     pub hits: i32,
+    pub time: f32,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
