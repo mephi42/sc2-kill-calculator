@@ -77,31 +77,52 @@ struct DamageInstance {
     dmg_amount: f32,
 }
 
-fn get_damage_instances(effect: &WeaponEffect, mut time: f32) -> Vec<DamageInstance> {
-    let mut damage_instances = Vec::new();
-    let persistent_count = match effect.persistent_count {
-        Some(persistent_count) => persistent_count,
-        None => 1,
-    };
-    let default_persistent_periods = vec!(0.);
-    let persistent_periods = match effect.persistent_periods {
-        Some(ref persistent_periods) => &persistent_periods,
-        None => &default_persistent_periods,
-    };
-    for i in 0..(persistent_count as usize) {
-        match effect.dmg_amount {
-            Some(0.) => {}
-            Some(dmg_amount) =>
-                damage_instances.push(DamageInstance { time, dmg_amount }),
-            None => {}
-        }
-        for set_effects in effect.set_effects.iter() {
-            for set_effect in set_effects {
-                damage_instances.extend(get_damage_instances(&set_effect, time))
-            }
-        }
-        time += persistent_periods[i % persistent_periods.len()]
+fn get_or_0(o: &Option<f32>) -> f32 {
+    match o {
+        Some(x) => *x,
+        None => 0.,
     }
+}
+
+fn get_bonus_damage(effect: &WeaponEffect, defender: &Unit) -> f32 {
+    match effect.dmg_attribute_bonuses {
+        Some(ref dmg_attribute_bonuses) =>
+            (if defender.armored { get_or_0(&dmg_attribute_bonuses.armored) } else { 0. }) +
+                (if defender.biological { get_or_0(&dmg_attribute_bonuses.biological) } else { 0. }) +
+                (if defender.light { get_or_0(&dmg_attribute_bonuses.light) } else { 0. }) +
+                (if defender.massive { get_or_0(&dmg_attribute_bonuses.massive) } else { 0. }) +
+                (if defender.mechanical { get_or_0(&dmg_attribute_bonuses.mechanical) } else { 0. }),
+        None => 0.,
+    }
+}
+
+fn get_damage_instances(effect: &WeaponEffect, defender: &Unit) -> Vec<DamageInstance> {
+    fn go(effect: &WeaponEffect, defender: &Unit, mut time: f32, damage_instances: &mut Vec<DamageInstance>) {
+        let persistent_count = match effect.persistent_count {
+            Some(persistent_count) => persistent_count,
+            None => 1,
+        };
+        let default_persistent_periods = vec!(0.);
+        let persistent_periods = match effect.persistent_periods {
+            Some(ref persistent_periods) => &persistent_periods,
+            None => &default_persistent_periods,
+        };
+        for i in 0..(persistent_count as usize) {
+            let dmg_amount = get_or_0(&effect.dmg_amount) + get_bonus_damage(effect, defender);
+            if dmg_amount > 0.01 {
+                damage_instances.push(DamageInstance { time, dmg_amount });
+            }
+            for set_effects in effect.set_effects.iter() {
+                for set_effect in set_effects {
+                    go(&set_effect, defender, time, damage_instances)
+                }
+            }
+            time += persistent_periods[i % persistent_periods.len()]
+        }
+    }
+    let mut damage_instances = Vec::new();
+    go(effect, defender, 0., &mut damage_instances);
+    damage_instances.sort_by(|a, b| a.time.partial_cmp(&b.time).unwrap());
     damage_instances
 }
 
@@ -110,7 +131,7 @@ static MIN_DMG: f32 = 0.5;
 fn calculate_kill(attacker: &Unit, defender: &Unit, weapons: &WeaponData) -> rest::KillCalculation {
     match get_weapon(attacker, defender, weapons) {
         Some(weapon) => {
-            let instances = get_damage_instances(&weapon.effect, 0.);
+            let instances = get_damage_instances(&weapon.effect, &defender);
             if instances.is_empty() {
                 rest::KillCalculation {
                     can_hit: false,
@@ -123,7 +144,7 @@ fn calculate_kill(attacker: &Unit, defender: &Unit, weapons: &WeaponData) -> res
                 let mut i = 0;
                 let mut life = defender.life_max;
                 let mut shields = defender.shields_max;
-                let mut time = 0.;
+                let mut time;
                 let mut prev_time = 0.;
                 loop {
                     let instance = &instances[i % instances.len()];

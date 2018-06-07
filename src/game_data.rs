@@ -15,6 +15,20 @@ pub struct WeaponEffectImpact {
 }
 
 #[derive(Deserialize)]
+pub struct DmgAttributeBonuses {
+    #[serde(rename = "Armored")]
+    pub armored: Option<f32>,
+    #[serde(rename = "Biological")]
+    pub biological: Option<f32>,
+    #[serde(rename = "Light")]
+    pub light: Option<f32>,
+    #[serde(rename = "Massive")]
+    pub massive: Option<f32>,
+    #[serde(rename = "Mechanical")]
+    pub mechanical: Option<f32>,
+}
+
+#[derive(Deserialize)]
 pub struct WeaponEffect {
     #[serde(rename = "dmgAmount")]
     pub dmg_amount: Option<f32>,
@@ -25,6 +39,8 @@ pub struct WeaponEffect {
     pub set_effects: Option<Vec<WeaponEffect>>,
     #[serde(rename = "persistentPeriods")]
     pub persistent_periods: Option<Vec<f32>>,
+    #[serde(rename = "dmgAttributeBonuses")]
+    pub dmg_attribute_bonuses: Option<DmgAttributeBonuses>,
 }
 
 #[derive(Deserialize)]
@@ -55,6 +71,11 @@ pub struct Unit {
     pub life_armor: f32,
     #[serde(rename = "lifeRegenRate")]
     pub life_regen_rate: f32,
+    pub armored: bool,
+    pub biological: bool,
+    pub light: bool,
+    pub massive: bool,
+    pub mechanical: bool,
 }
 
 type UnitData = HashMap<String, Unit>;

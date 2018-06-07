@@ -75,8 +75,10 @@ mod test {
     static TERRAN: &str = "terran";
     static ZERG: &str = "zerg";
     static ZEALOT: &str = "Zealot";
+    static IMMORTAL: &str = "Immortal";
     static MARINE: &str = "Marine";
     static ZERGLING: &str = "Zergling";
+    static ROACH: &str = "Roach";
 
     #[test]
     fn versions() {
@@ -115,6 +117,11 @@ mod test {
             attacker_race: String::from(PROTOSS),
             defender_race: String::from(ZERG),
         });
+        assert_eq!(rest::KillCalculation {
+            can_hit: true,
+            hits: 3,
+            time: 2.9,
+        }, *kill_calculation(&matchup, IMMORTAL, ROACH))
     }
 
     #[test]
